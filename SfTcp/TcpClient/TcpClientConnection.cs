@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 
 namespace SfTcp.TcpClient
@@ -36,7 +37,7 @@ namespace SfTcp.TcpClient
 
 		private void Client_ConnectCompleted(object sender, SocketEventArgs e)
 		{
-			OnConnected?.Invoke(sender, new ServerConnectEventArgs());
+			OnConnected?.Invoke(sender, new ServerConnectEventArgs(e.Operation));
 		}
 
 

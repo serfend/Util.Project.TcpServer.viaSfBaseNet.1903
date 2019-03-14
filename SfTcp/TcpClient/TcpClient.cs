@@ -20,8 +20,11 @@ namespace SfTcp.TcpClient
 			Console.WriteLine($"尝试连接到{ip}:{port}");
 			Client = new TcpClientConnection(ip,port);
 			Client.OnConnected += (x, xx) => {
-				Console.WriteLine($"连接成功到{ip}:{port}");
-				OnConnected?.Invoke(this, xx);
+				if(xx.Operation==System.Net.Sockets.SocketAsyncOperation.Connect)
+				{
+					Console.WriteLine($"连接成功到{ip}:{port}");
+					OnConnected?.Invoke(this, xx);
+				}
 			};
 			Client.OnDisconnected += (x, xx) => {
 				Console.WriteLine($"与服务器丢失连接:{ip}:{port}");

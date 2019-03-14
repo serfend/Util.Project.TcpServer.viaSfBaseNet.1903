@@ -93,7 +93,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\Sf.Base.Net\Util.NET.netBase.CSsys.1903\SfBaseTcp.csproj">
+    <ProjectReference Include="..\..\Util.NET.netBase.CSsys.1903\SfBaseTcp.csproj">
       <Project>{a52e8ac5-2b3d-4518-8e52-d2bb688a66d8}</Project>
       <Name>SfBaseTcp</Name>
     </ProjectReference>

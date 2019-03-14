@@ -55,7 +55,7 @@ namespace SfTcp.TcpServer
 		public bool Send(byte[] data)
 		{
 			if (client.IsConnected) {
-				Console.WriteLine($"send->{this.Ip} byte[{data.Length}]");
+				//Console.WriteLine($"send->{this.Ip} byte[{data.Length}]");
 				client.Send(data);
 			}
 			return true;
