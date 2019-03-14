@@ -63,61 +63,59 @@ namespace SfTcp.TcpServer
 				//{
 				//	return Environment.TickCount;
 				//});
-				OnConnect?.BeginInvoke(connection, new ClientConnectEventArgs(), (x) => { }, null);
+				OnConnect?.Invoke(connection, new ClientConnectEventArgs());
 			}
 		}
 
 		private void Server_DisconnectCompleted(object sender, SfBaseTcp.Net.Sockets.SocketEventArgs e)
 		{
-			RaiseOnDisconnect(e.Socket.RemoteEndPoint.ToString());
+			lock (list)
+			{
+				RaiseOnDisconnect(e.Socket.RemoteEndPoint.ToString());
+			}
 		}
 
 		private void Server_ReceiveCompleted(object sender, SfBaseTcp.Net.Sockets.SocketEventArgs e)
 		{
-			string ip = e.Socket.RemoteEndPoint.ToString();
-			
-			
-			var msg = new ClientMessageEventArgs(e.Data);
-			Console.WriteLine($"{ip}->{msg.RawString}");
-			if (msg.Error)
+			lock (list)
 			{
-				var httpMsg = TcpHttpMessage.CheckTcpHttpMessage(msg.RawString);
-				if (httpMsg != null)
+				string ip = e.Socket.RemoteEndPoint.ToString();
+				var msg = new ClientMessageEventArgs(e.Data);
+				Console.WriteLine($"{ip}->{msg.RawString}");
+				if (msg.Error)
 				{
-					list.TryGetValue(ip, out TcpConnection connection);
-					if(connection!=null&& connection.Client.IsConnected) OnHttpMessage?.Invoke(sender, new ClientHttpMessageEventArgs(httpMsg, connection));
-					return;
+					var httpMsg = TcpHttpMessage.CheckTcpHttpMessage(msg.RawString);
+					if (httpMsg != null)
+					{
+						list.TryGetValue(ip, out TcpConnection connection);
+						if (connection != null && connection.Client.IsConnected) OnHttpMessage?.Invoke(sender, new ClientHttpMessageEventArgs(httpMsg, connection));
+						return;
+					}
+					else
+					{
+						//throw new MsgInvalidException(msg.RawString);
+						return;
+					}
 				}
-				else
-				{
-					//throw new MsgInvalidException(msg.RawString);
-					return;
-				}
+				RaiseOnMessage(ip, msg);
 			}
-			RaiseOnMessage(ip, msg);
 		}
 
 
 		private void RaiseOnDisconnect(string s)
 		{
-			lock (list)
-			{
-				if (!list.ContainsKey(s)) return;
-				var connection = this[s];
-				list.TryRemove(s,out TcpConnection removeConnection);
-				//lastMessageStamp.TryRemove(s,out int value);
-				OnDisconnect?.BeginInvoke(connection, new ClientDisconnectEventArgs(),(x)=> { },null);
-			}
+			if (!list.ContainsKey(s)) return;
+			var connection = this[s];
+			list.TryRemove(s,out TcpConnection removeConnection);
+			//lastMessageStamp.TryRemove(s,out int value);
+			OnDisconnect?.Invoke(connection, new ClientDisconnectEventArgs());
 		}
 		private void RaiseOnMessage(string s,ClientMessageEventArgs e)
 		{
-			lock (list)
-			{
-				var connection = this[s];
-				//Console.WriteLine($"message {connection.AliasName}->{d.RawString}");
-				//lastMessageStamp[s] = Environment.TickCount;
-				OnMessage?.BeginInvoke(connection, e, (x) => { }, null);
-			}
+			var connection = this[s];
+			//Console.WriteLine($"message {connection.AliasName}->{d.RawString}");
+			//lastMessageStamp[s] = Environment.TickCount;
+			OnMessage?.Invoke(connection, e);
 		}
 		private void CheckClientAlive()
 		{
