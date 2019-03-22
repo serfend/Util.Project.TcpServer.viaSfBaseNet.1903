@@ -20,11 +20,9 @@ namespace SfTcp.TcpClient
 			Console.WriteLine($"尝试连接到{ip}:{port}");
 			Client = new TcpClientConnection(ip,port);
 			Client.OnConnected += (x, xx) => {
-				if(xx.Operation==System.Net.Sockets.SocketAsyncOperation.Connect)
-				{
-					Console.WriteLine($"连接成功到{ip}:{port}");
+				
+					Console.WriteLine($"连接到{ip}:{port}{xx.Operation}");
 					OnConnected?.Invoke(this, xx);
-				}
 			};
 			Client.OnDisconnected += (x, xx) => {
 				Console.WriteLine($"与服务器丢失连接:{ip}:{port}");
@@ -62,7 +60,7 @@ namespace SfTcp.TcpClient
 		/// <param name="raw">可转换Json格式的实体类，并继承BaseMessage</param>
 		public bool Send(ITcpMessage raw)
 		{
-			return Send(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(raw)));
+			return Send(Encoding.UTF8.GetBytes($"<jsonMsg>{JsonConvert.SerializeObject(raw)}</jsonMsg>"));
 		}
 		/// <summary>
 		/// 发送原始数据
@@ -71,11 +69,16 @@ namespace SfTcp.TcpClient
 		/// <returns></returns>
 		public bool Send(byte[] data)
 		{
+			if (Client == null)
+			{
+				OnDisconnected?.Invoke(this,new ServerDisconnectEventArgs());
+				return false;
+			}
 			return Client.Send(data);
 		}
 		public void Disconnect()
 		{
-			Client.Disconnect();
+			Client?.Disconnect();
 		}
 
 

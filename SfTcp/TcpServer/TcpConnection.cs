@@ -45,7 +45,8 @@ namespace SfTcp.TcpServer
 		/// <param name="raw">可转换Json格式的实体类，并继承BaseMessage</param>
 		public bool Send(ITcpMessage raw)
 		{
-			return Send(System.Text.Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(raw)));
+			//return Send(System.Text.Encoding.UTF8.GetBytes($"<jsonMsg>{JsonConvert.SerializeObject(raw)}</jsonMsg>"));
+			return Send(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(raw)));
 		}
 		/// <summary>
 		/// 发送原始数据
@@ -62,7 +63,8 @@ namespace SfTcp.TcpServer
 		}
 		public void Disconnect()
 		{
-			client.Disconnect();
+			Console.WriteLine("ServerIsDisconnectByUser");
+			client.DisconnectAsync();
 		}
 		public ISocket Client { get => client; set => client = value; }
 		public string Ip { get => client.RemoteEndPoint.ToString(); }

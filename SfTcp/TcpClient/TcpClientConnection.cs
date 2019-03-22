@@ -53,13 +53,17 @@ namespace SfTcp.TcpClient
 
 		public bool Connect()
 		{
-			if (client!=null&&client.IsConnected) Disconnect();
+			if (client != null && client.IsConnected) {
+				Disconnect();
+				return false;
+			}
 			client.Connect(new IPEndPoint(IPAddress.Parse(ip), port));
 			return true;
 		}
 
 		public void Disconnect()
 		{
+			Console.WriteLine("ClientIsDisconnectByUser");
 			client.Disconnect();
 		}
 

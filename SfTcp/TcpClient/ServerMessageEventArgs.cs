@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using DotNet4.Utilities.UtilCode;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -28,14 +29,23 @@ namespace SfTcp.TcpClient
 			try
 			{
 				rawString = Encoding.UTF8.GetString(data);
-				dic = JToken.Parse(rawString);
-				title = dic["Title"].ToString();
+				//if (rawString.StartsWith("<jsonMsg>"))
+				{
+					dic = JToken.Parse(rawString);
+					title = dic["Title"]?.ToString();
+					if (title == null) Error = true;
+				}
+				//else
+				//{
+				//	Error = true;
+				//}
 			}
 			catch (Exception ex)
 			{
 				title = ex.Message;
 			}
 		}
+		private bool error;
 		private JToken dic;
 		public string Title { get {
 				AnalysisRaw();
@@ -56,6 +66,9 @@ namespace SfTcp.TcpClient
 				return rawString;
 			}
 		}
+
+		public bool Error { get => error; set => error = value; }
+
 		private string rawString;
 	}
 }

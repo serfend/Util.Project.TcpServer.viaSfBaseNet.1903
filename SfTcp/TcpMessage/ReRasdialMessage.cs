@@ -14,7 +14,14 @@ namespace SfTcp.TcpMessage
 	public class RpReRasdialMessage : ITcpMessage
 	{
 		private string title = TcpMessageEnum.RpReRasdial;
+		private string reason;
+
+		public RpReRasdialMessage(string reason)
+		{
+			this.reason = reason;
+		}
 
 		public string Title { get => title; set => title = value; }
+		public string Reason { get => reason; set => reason = value; }
 	}
 }

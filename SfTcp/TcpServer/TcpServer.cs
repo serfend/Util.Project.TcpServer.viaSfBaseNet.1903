@@ -17,8 +17,11 @@ namespace SfTcp.TcpServer
 		public int Port { get => port; set => port = value; }
 
 		public TcpConnection this[string key] { get {
-				list.TryGetValue(key,out TcpConnection result);
-				return result;
+				lock (list)
+				{
+					list.TryGetValue(key,out TcpConnection result);
+					return result;
+				}
 			} set => list[key] = value; }
 		private int port;
 		public event ClientConnect OnConnect;
@@ -26,7 +29,7 @@ namespace SfTcp.TcpServer
 		public event ClientMessage OnMessage;
 		public event ClientHttpMessage OnHttpMessage;
 		private ConcurrentDictionary<string, TcpConnection> list;
-		private ConcurrentDictionary<string, int> lastMessageStamp=new ConcurrentDictionary<string, int>();
+		//private ConcurrentDictionary<string, int> lastMessageStamp=new ConcurrentDictionary<string, int>();
 		private bool isListening;
 		/// <summary>
 		/// 用于定时检查终端，并释放长时间无通讯的终端
@@ -42,23 +45,24 @@ namespace SfTcp.TcpServer
 			server.ReceiveCompleted += Server_ReceiveCompleted; ;
 			server.AcceptCompleted += Server_AcceptCompleted; ;
 
-			//checkClientAlive = new Thread(CheckClientAlive) { IsBackground=true};
-			//checkClientAlive.Start(); 此处自动检测活性暂不可用
+			//checkClientAlive = new Thread(CheckClientAlive) { IsBackground = true };
+			//checkClientAlive.Start(); 
 			server.Start();
 		}
 
 		private void Server_AcceptCompleted(object sender, SfBaseTcp.Net.Sockets.SocketEventArgs e)
 		{
-			lock (list)
+			lock (anyMessage)
 			{
-				var ip = e.Socket.RemoteEndPoint.ToString();
 				TcpConnection connection;
+				var ip = e.Socket.RemoteEndPoint.ToString();
+
 				connection = new TcpConnection(e.Socket, "null");
 				if (list == null)
 				{
 					throw new Exception("list is not init");
 				}
-				list.AddOrUpdate(ip, connection,(clientIp,clientConnect)=>clientConnect);
+				list.AddOrUpdate(ip, connection, (clientIp, clientConnect) => clientConnect);
 				//lastMessageStamp.AddOrUpdate(connection.Ip, Environment.TickCount, (key, value) =>
 				//{
 				//	return Environment.TickCount;
@@ -69,25 +73,27 @@ namespace SfTcp.TcpServer
 
 		private void Server_DisconnectCompleted(object sender, SfBaseTcp.Net.Sockets.SocketEventArgs e)
 		{
-			lock (list)
-			{
-				RaiseOnDisconnect(e.Socket.RemoteEndPoint.ToString());
-			}
+			RaiseOnDisconnect(e.Socket.RemoteEndPoint.ToString());
 		}
 
 		private void Server_ReceiveCompleted(object sender, SfBaseTcp.Net.Sockets.SocketEventArgs e)
 		{
-			lock (list)
+			lock (anyMessage)
 			{
-				string ip = e.Socket.RemoteEndPoint.ToString();
+				TcpConnection connection = null;
 				var msg = new ClientMessageEventArgs(e.Data);
+
+				string ip = e.Socket.RemoteEndPoint.ToString();
+
+				list.TryGetValue(ip, out connection);
+
+				msg.AnalysisRaw();
 				Console.WriteLine($"{ip}->{msg.RawString}");
 				if (msg.Error)
 				{
 					var httpMsg = TcpHttpMessage.CheckTcpHttpMessage(msg.RawString);
 					if (httpMsg != null)
 					{
-						list.TryGetValue(ip, out TcpConnection connection);
 						if (connection != null && connection.Client.IsConnected) OnHttpMessage?.Invoke(sender, new ClientHttpMessageEventArgs(httpMsg, connection));
 						return;
 					}
@@ -97,52 +103,74 @@ namespace SfTcp.TcpServer
 						return;
 					}
 				}
-				RaiseOnMessage(ip, msg);
+				RaiseOnMessage(connection, msg);
 			}
 		}
-
+		private object anyMessage=new object();
 
 		private void RaiseOnDisconnect(string s)
 		{
-			if (!list.ContainsKey(s)) return;
-			var connection = this[s];
-			list.TryRemove(s,out TcpConnection removeConnection);
-			//lastMessageStamp.TryRemove(s,out int value);
-			OnDisconnect?.Invoke(connection, new ClientDisconnectEventArgs());
-		}
-		private void RaiseOnMessage(string s,ClientMessageEventArgs e)
-		{
-			var connection = this[s];
-			//Console.WriteLine($"message {connection.AliasName}->{d.RawString}");
-			//lastMessageStamp[s] = Environment.TickCount;
-			OnMessage?.Invoke(connection, e);
-		}
-		private void CheckClientAlive()
-		{
-			int count = 0;
-			while (true)
+			lock (anyMessage)
 			{
-				if (count++ > 100)
-				{
-					count = 0;
-					int nowTime = Environment.TickCount;
-					foreach(var c in list)
-					{
-						var connection=c.Value;
-						if (connection == null)
-						{
-							throw new Exception("集合中存在空对象");
-						}
-						if (nowTime - lastMessageStamp[connection.Ip] > 20000)
-						{
-							connection.Client.Disconnect();
-							//当上一行代码实现了关闭，则注释此行 RaiseOnDisconnect(connection.Ip);
-							break;
-						}
-					}
-				}
+				TcpConnection connection;
+				if (!list.ContainsKey(s))return;
+				connection = this[s];
+				list.TryRemove(s, out TcpConnection removeConnection);
+				//lastMessageStamp.TryRemove(s, out int value);
+
+				OnDisconnect?.Invoke(connection, new ClientDisconnectEventArgs());
 			}
 		}
+		private void RaiseOnMessage(TcpConnection connection,ClientMessageEventArgs e)
+		{
+			int nowTime = Environment.TickCount;
+			//Console.WriteLine($"message {connection.AliasName}->{d.RawString}");
+			//lastMessageStamp.AddOrUpdate(connection.Ip, nowTime, (xx, x) => nowTime);
+			OnMessage?.Invoke(connection, e);
+		}
+		#region checkAlive
+		//private void CheckClientAlive()
+		//{
+		//	int count = 0;
+		//	int nowLife = 100;
+		//	while (true)
+		//	{
+		//		Thread.Sleep(100);
+		//		if (count++ > nowLife)
+		//		{
+		//			TcpConnection thisTimeToDisconnect = null;
+		//			count = 0;
+		//			int nowTime = Environment.TickCount;
+		//			lock (list)
+		//			{
+		//				foreach (var c in list)
+		//				{
+		//					var connection = c.Value;
+		//					if (connection == null)
+		//					{
+		//						continue;
+		//					}
+		//					if (nowTime - lastMessageStamp[connection.Ip] > 20000)
+		//					{
+		//						thisTimeToDisconnect = connection;
+		//						nowLife = (int)(nowLife * 0.5) + 1;
+		//						//当上一行代码实现了关闭，则注释此行 RaiseOnDisconnect(connection.Ip);
+		//						break;
+		//					}
+		//				}
+		//			}
+		//			if (thisTimeToDisconnect == null)
+		//			{
+		//				nowLife = nowLife + 5;
+		//			}
+		//			else
+		//			{
+		//				thisTimeToDisconnect.Client?.Disconnect();
+		//			}
+		//		}
+		//	}
+		//}
+		#endregion
 		private void Disconnect(TcpConnection client)
 		{
 			client.Disconnect();
@@ -172,7 +200,11 @@ namespace SfTcp.TcpServer
 			{
 				if (disposing)
 				{
-					if(server!=null)StopListening();
+					if (server != null)
+					{
+						StopListening();
+						server.Dispose();
+					}
 				}
 				server = null;
 				disposedValue = true;

@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using DotNet4.Utilities.UtilCode;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -56,9 +57,17 @@ namespace SfTcp.TcpServer
 			}
 			try
 			{
-				dic = JToken.Parse(rawString);
-				title = dic["Title"]?.ToString();
-				if (title == null) error = true;
+				if (rawString.StartsWith("<jsonMsg>"))
+				{
+					dic = JToken.Parse(HttpUtil.GetElementInItem(rawString,"jsonMsg"));
+					title = dic["Title"]?.ToString();
+					if (title == null) error = true;
+				}
+				else
+				{
+					error = true;
+				}
+				
 			}
 			catch (Exception ex)
 			{
